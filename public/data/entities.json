@@ -1,0 +1,26 @@
+﻿{
+    "player": {
+        "sprite": "thu",
+        "position": {
+            "x": 200,
+            "y": 0
+        }
+    },
+    "crate": {
+        "sprite": "crate",
+        "position": {
+            "x": 200,
+            "y": 300
+        }
+    },
+    "assets": [
+        {
+            "key": "thu",
+            "src": "/sprites/entities/thu.png"
+        },
+        {
+            "key": "crate",
+            "src": "/sprites/entities/crate.png"
+        }
+    ]
+}

@@ -1,0 +1,27 @@
+﻿{
+    "name": "Level 1",
+    "entities": {
+        "crate": {
+            "transform": {
+                "x": 400,
+                "y": 300
+            }
+        },
+        "crate": {
+            "transform": {
+                "x": 700,
+                "y": 200
+            }
+        }
+    },
+    "assets": [
+        {
+            "key": "bg_bridge",
+            "src": "/sprites/backgrounds/bridge.png"
+        },
+        {
+            "key": "bg_bridge_fg",
+            "src": "/sprites/backgrounds/bridge_fg.png"
+        }
+    ]
+}
