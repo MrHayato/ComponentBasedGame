@@ -48,4 +48,5 @@ module Components
 {
     export var RENDER = "sprite";
     export var POSITION = "position";
+    export var ANIMATION = "animation";
 }

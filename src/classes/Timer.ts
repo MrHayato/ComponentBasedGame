@@ -49,4 +49,9 @@ class Timer
         clearTimeout(this._timer);
         this._timer = null;
     }
+
+    currentTime()
+    {
+        return this._initialTime;
+    }
 }

@@ -44,7 +44,7 @@ class EntityArray
         return this._componentMap.get(componentName);
     }
 
-    updateByComponent(componentName: string)
+    updateByComponent(componentName: string, ticks: number)
     {
         var entities = this.getEntitiesByComponent(componentName);
         if (!entities || entities.length === 0)
@@ -52,7 +52,7 @@ class EntityArray
 
         for (var i = 0; i < entities.length; i++)
         {
-            entities[i].getComponent(componentName).update();
+            entities[i].getComponent(componentName).update(ticks);
         }
     }
 }

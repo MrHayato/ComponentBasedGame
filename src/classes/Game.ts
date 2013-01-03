@@ -3,29 +3,54 @@
 ///<reference path="AssetManager.ts" />
 ///<reference path="Timer.ts" />
 ///<reference path="../components/RenderComponent.ts" />
+///<reference path="../components/PositionComponent.ts" />
+///<reference path="../components/AnimationComponent.ts" />
 ///<reference path="../definitions/jaws.d.ts" />
 
-module Game
+class Game
 {
-    export var entities: EntityArray= new EntityArray();
-    export var timer: Timer= new Timer({ fps: 60, tick: update });
-    export var assetManager: AssetManager= new AssetManager();
-    export var canvas: HTMLCanvasElement;
-    export var context: CanvasRenderingContext2D;
+    entities: EntityArray;
+    timer: Timer;
+    assetManager: AssetManager;
+    context: CanvasRenderingContext2D;
 
-    function update()
+    private _lastId: number;
+    private _canvas: HTMLCanvasElement;
+    private _componentMap: { [key: string]: any; };
+
+    constructor (canvas: HTMLCanvasElement)
     {
-        var components = [Components.RENDER];
+        var self = this;
+        this.entities = new EntityArray();
+        this.timer = new Timer({ fps: 60, tick: function () { self.update(); } });
+        this.assetManager = new AssetManager();
+        this._canvas = canvas;
+        this.context = canvas.getContext("2d");
+        this._lastId = 0;
+
+        this._componentMap = {};
+        this._componentMap[Components.RENDER] = RenderComponent;
+        this._componentMap[Components.POSITION] = PositionComponent;
+        this._componentMap[Components.ANIMATION] = AnimationComponent;
+    }
+
+    private update()
+    {
+        var components = [Components.POSITION, Components.ANIMATION, Components.RENDER];
         
         //Update components
         for (var i = 0; i < components.length; i++)
         {
-            entities.updateByComponent(components[i]);
+            if (components[i] === Components.RENDER)
+                this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
+
+            this.entities.updateByComponent(components[i], this.timer.currentTime());
         }
     }
 
-    function loadEntities(callback: () => any)
+    private loadEntities(callback: () => any)
     {
+        var self = this;
         var numFiles = 2;
         var loaded = 0;
         var onLoaded = function ()
@@ -38,66 +63,69 @@ module Game
             }
         };
 
-        assetManager.loadJSON("/data/entities.json", function (ents)
+        this.assetManager.loadJSON("/data/entities.json", function (ents)
         {
-            parseEntities(ents);
+            self.parseEntities(ents);
             onLoaded();
         });
-        assetManager.loadJSON("/data/level1.json", function (level)
+        this.assetManager.loadJSON("/data/level1.json", function (level)
         {
-            parseLevel(level);
+            self.parseLevel(level);
             onLoaded();
         });
     }
 
-    function parseEntities(ents)
+    private parseEntities(ents)
     {
         for (var entity in ents)
         {
             if (entity !== "assets")
             {
-                var newEntity = new Entity();
+                var newEntity = new Entity(this.generateEntityId());
 
                 for (var component in ents[entity])
                 {
                     var newComponent: IComponent = null;
 
-                    switch (component.toLowerCase())
+                    if (this._componentMap[component.toLowerCase()])
                     {
-                        case Components.RENDER:
-                            newComponent = new RenderComponent(newEntity);
-                            break;
-                        case Components.POSITION:
-                            newComponent = new PositionComponent(newEntity);
-                            break;
-                    }
-
-                    if (newComponent != null)
+                        newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
                         newComponent.initialize(ents[entity][component]);
-                    newEntity.addComponent(newComponent);
+                        newEntity.addComponent(newComponent);
+                    }
+                    else
+                    {
+                        Logger.error("Component not found: " + component);
+                    }
                 }
 
-                entities.add(newEntity);
+                this.entities.add(newEntity);
             }
         }
     }
 
-    function parseLevel(level)
+    private parseLevel(level)
     {
 
     }
 
-    export function setCanvas(canv: HTMLCanvasElement)
+    start()
     {
-        canvas = canv;
-        context = canv.getContext("2d");
-    }
-
-    export function start()
-    {
-        loadEntities(function ()
+        var self = this;
+        this.loadEntities(function ()
         {
-            timer.start();
+            self.timer.start();
         });
+    }
+
+    draw(image: HTMLElement, offsetX: number, offsetY: number, width?: number, height?: number, 
+        canvasOffsetX?: number, canvasOffsetY?: number, canvasImageWidth?: number, canvasImageHeight?: number): void
+    {
+        this.context.drawImage(image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight);
+    }
+
+    generateEntityId(): number
+    {
+        return this._lastId;
     }
 }

@@ -1,65 +1,3 @@
-var Entity = (function () {
-    function Entity() {
-        this.components = {
-        };
-    }
-    Entity.prototype.addComponent = function (component) {
-        this.components[component.name] = component;
-    };
-    Entity.prototype.getComponent = function (componentName) {
-        if(this.components[componentName]) {
-            return this.components[componentName];
-        } else {
-            Logger.error("Component not found: " + componentName);
-            return undefined;
-        }
-    };
-    Entity.prototype.removeComponent = function (component) {
-        this.components[component.name] = undefined;
-    };
-    return Entity;
-})();
-var ComponentEntityMap = (function () {
-    function ComponentEntityMap() {
-        this._map = {
-        };
-    }
-    ComponentEntityMap.prototype.push = function (componentName, entity) {
-        if(!this._map[componentName]) {
-            this._map[componentName] = [];
-        }
-        this._map[componentName].push(entity);
-    };
-    ComponentEntityMap.prototype.get = function (componentName) {
-        return this._map[componentName];
-    };
-    return ComponentEntityMap;
-})();
-var EntityArray = (function () {
-    function EntityArray() {
-        this._entities = [];
-        this._componentMap = new ComponentEntityMap();
-    }
-    EntityArray.prototype.add = function (entity) {
-        this._entities.push(entity);
-        for(var component in entity.components) {
-            this._componentMap.push(component, entity);
-        }
-    };
-    EntityArray.prototype.getEntitiesByComponent = function (componentName) {
-        return this._componentMap.get(componentName);
-    };
-    EntityArray.prototype.updateByComponent = function (componentName) {
-        var entities = this.getEntitiesByComponent(componentName);
-        if(!entities || entities.length === 0) {
-            return;
-        }
-        for(var i = 0; i < entities.length; i++) {
-            entities[i].getComponent(componentName).update();
-        }
-    };
-    return EntityArray;
-})();
 var Keys;
 (function (Keys) {
     Keys.LEFT = "left";
@@ -101,6 +39,7 @@ var Components;
 (function (Components) {
     Components.RENDER = "sprite";
     Components.POSITION = "position";
+    Components.ANIMATION = "animation";
 })(Components || (Components = {}));
 
 var Logger;
@@ -133,6 +72,68 @@ var Logger;
     Logger.trace = trace;
 })(Logger || (Logger = {}));
 
+var Entity = (function () {
+    function Entity(id) {
+        this.components = {
+        };
+        this._id = id;
+    }
+    Entity.prototype.addComponent = function (component) {
+        this.components[component.name] = component;
+    };
+    Entity.prototype.getComponent = function (componentName) {
+        if(this.components[componentName]) {
+            return this.components[componentName];
+        } else {
+            return undefined;
+        }
+    };
+    Entity.prototype.removeComponent = function (component) {
+        this.components[component.name] = undefined;
+    };
+    return Entity;
+})();
+var ComponentEntityMap = (function () {
+    function ComponentEntityMap() {
+        this._map = {
+        };
+    }
+    ComponentEntityMap.prototype.push = function (componentName, entity) {
+        if(!this._map[componentName]) {
+            this._map[componentName] = [];
+        }
+        this._map[componentName].push(entity);
+    };
+    ComponentEntityMap.prototype.get = function (componentName) {
+        return this._map[componentName];
+    };
+    return ComponentEntityMap;
+})();
+var EntityArray = (function () {
+    function EntityArray() {
+        this._entities = [];
+        this._componentMap = new ComponentEntityMap();
+    }
+    EntityArray.prototype.add = function (entity) {
+        this._entities.push(entity);
+        for(var component in entity.components) {
+            this._componentMap.push(component, entity);
+        }
+    };
+    EntityArray.prototype.getEntitiesByComponent = function (componentName) {
+        return this._componentMap.get(componentName);
+    };
+    EntityArray.prototype.updateByComponent = function (componentName, ticks) {
+        var entities = this.getEntitiesByComponent(componentName);
+        if(!entities || entities.length === 0) {
+            return;
+        }
+        for(var i = 0; i < entities.length; i++) {
+            entities[i].getComponent(componentName).update(ticks);
+        }
+    };
+    return EntityArray;
+})();
 var AssetManager = (function () {
     function AssetManager() {
         this._assets = {
@@ -270,16 +271,20 @@ var Timer = (function () {
         clearTimeout(this._timer);
         this._timer = null;
     };
+    Timer.prototype.currentTime = function () {
+        return this._initialTime;
+    };
     return Timer;
 })();
 var PositionComponent = (function () {
-    function PositionComponent(entity) {
+    function PositionComponent(game, entity) {
         this.name = Components.POSITION;
+        this._game = game;
         this._entity = entity;
         this._x = 0;
         this._y = 0;
     }
-    PositionComponent.prototype.update = function () {
+    PositionComponent.prototype.update = function (ticks) {
     };
     PositionComponent.prototype.initialize = function (settings) {
         this._x = settings.x;
@@ -293,43 +298,171 @@ var PositionComponent = (function () {
     };
     return PositionComponent;
 })();
-var RenderComponent = (function () {
-    function RenderComponent(entity) {
-        this.name = Components.RENDER;
+var AnimationComponent = (function () {
+    function AnimationComponent(game, entity) {
+        this.name = Components.ANIMATION;
+        this._game = game;
         this._entity = entity;
     }
-    RenderComponent.prototype.update = function () {
+    AnimationComponent.prototype.update = function (ticks) {
+        var anim = this._currentAnimation;
+        if(!anim) {
+            return;
+        }
+        if(ticks - this._frameStartTime > anim.duration) {
+            this._frameStartTime = ticks;
+            this._currentFrame++;
+            if(this._currentFrame >= anim.frames.length) {
+                if(anim.loop) {
+                    this._currentFrame = 0;
+                } else {
+                    if(anim.onComplete) {
+                        anim.onComplete();
+                    }
+                }
+            }
+        }
+    };
+    AnimationComponent.prototype.initialize = function (animationFrames) {
+        var sprite = this.getSprite();
+        var spriteSize = this.getSpriteDimensions(sprite);
+        var frameWidth = animationFrames.width;
+        var frameHeight = animationFrames.height;
+        var rows = Math.floor(spriteSize[0] / frameWidth);
+        var cols = Math.floor(spriteSize[1] / frameHeight);
+        this._animations = {
+        };
+        for(var frameKey in animationFrames.frames) {
+            var frame = animationFrames.frames[frameKey];
+            var name = frameKey;
+            var indexes = frame.indexes;
+            var loop = frame.loop;
+            var duration = frame.duration;
+            var frames = [];
+            if(indexes.length !== 2) {
+                Logger.error("Invalid indexes for '" + name + "' animation specified.");
+                continue;
+            }
+            for(var idx = indexes[0]; idx <= indexes[1]; idx++) {
+                var row = Math.floor(idx / cols);
+                var col = idx % cols;
+                var animationFrame = this.cropImage(sprite, col * frameWidth, row * frameHeight, frameWidth, frameHeight);
+                frames.push(animationFrame);
+            }
+            var animation = {
+                loop: loop,
+                duration: duration,
+                frames: frames
+            };
+            this._animations[name] = animation;
+        }
+        this.setAnimation("walk");
+    };
+    AnimationComponent.prototype.getSprite = function () {
+        var renderComponent = this._entity.getComponent(Components.RENDER);
+        return renderComponent.getSprite();
+    };
+    AnimationComponent.prototype.getSpriteDimensions = function (sprite) {
+        var spriteWidth = sprite.width;
+        var spriteHeight = sprite.height;
+        return [
+            spriteWidth, 
+            spriteHeight
+        ];
+    };
+    AnimationComponent.prototype.cropImage = function (sprite, x, y, width, height) {
+        var crop = document.createElement("canvas");
+        crop.width = width;
+        crop.height = height;
+        var ctx = crop.getContext("2d");
+        ctx.drawImage(sprite, x, y, width, height, 0, 0, crop.width, crop.height);
+        return crop;
+    };
+    AnimationComponent.prototype.getFrame = function () {
+        if(this._currentFrame >= this._currentAnimation.frames.length) {
+            this._currentFrame = this._currentAnimation.frames.length - 1;
+        }
+        return this._currentAnimation.frames[this._currentFrame];
+    };
+    AnimationComponent.prototype.setAnimation = function (animationName, onAnimationComplete) {
+        var animation = this._animations[animationName];
+        if(!animation) {
+            Logger.error("Animation '" + animationName + "' not found.");
+            return;
+        }
+        if(onAnimationComplete) {
+            animation.onComplete = onAnimationComplete;
+        } else {
+            animation.onComplete = undefined;
+        }
+        this._currentAnimation = animation;
+        this._currentFrame = 0;
+        this._frameStartTime = this._game.timer.currentTime();
+    };
+    return AnimationComponent;
+})();
+var RenderComponent = (function () {
+    function RenderComponent(game, entity) {
+        this.name = Components.RENDER;
+        this._game = game;
+        this._entity = entity;
+    }
+    RenderComponent.prototype.update = function (ticks) {
         var pos = (this._entity.getComponent(Components.POSITION)).getPosition();
-        Game.context.drawImage(this._sprite, pos.x, pos.y);
+        var animComponent = (this._entity.getComponent(Components.ANIMATION));
+        if(animComponent) {
+            this._game.context.drawImage(animComponent.getFrame(), pos.x, pos.y);
+        } else {
+            this._game.context.drawImage(this._sprite, pos.x, pos.y);
+        }
     };
     RenderComponent.prototype.initialize = function (key) {
-        var canvas = Game.assetManager.get(key);
+        var canvas = this._game.assetManager.get(key);
         if(!canvas) {
             Logger.error("Asset not found: " + key);
         }
         this._sprite = canvas;
     };
+    RenderComponent.prototype.getSprite = function () {
+        return this._sprite;
+    };
     return RenderComponent;
 })();
-var Game;
-(function (Game) {
-    Game.entities = new EntityArray();
-    Game.timer = new Timer({
-        fps: 60,
-        tick: update
-    });
-    Game.assetManager = new AssetManager();
-    Game.canvas;
-    Game.context;
-    function update() {
+var Game = (function () {
+    function Game(canvas) {
+        var self = this;
+        this.entities = new EntityArray();
+        this.timer = new Timer({
+            fps: 60,
+            tick: function () {
+                self.update();
+            }
+        });
+        this.assetManager = new AssetManager();
+        this._canvas = canvas;
+        this.context = canvas.getContext("2d");
+        this._lastId = 0;
+        this._componentMap = {
+        };
+        this._componentMap[Components.RENDER] = RenderComponent;
+        this._componentMap[Components.POSITION] = PositionComponent;
+        this._componentMap[Components.ANIMATION] = AnimationComponent;
+    }
+    Game.prototype.update = function () {
         var components = [
+            Components.POSITION, 
+            Components.ANIMATION, 
             Components.RENDER
         ];
         for(var i = 0; i < components.length; i++) {
-            Game.entities.updateByComponent(components[i]);
+            if(components[i] === Components.RENDER) {
+                this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
+            }
+            this.entities.updateByComponent(components[i], this.timer.currentTime());
         }
-    }
-    function loadEntities(callback) {
+    };
+    Game.prototype.loadEntities = function (callback) {
+        var self = this;
         var numFiles = 2;
         var loaded = 0;
         var onLoaded = function () {
@@ -338,63 +471,55 @@ var Game;
                 callback();
             }
         };
-        Game.assetManager.loadJSON("/data/entities.json", function (ents) {
-            parseEntities(ents);
+        this.assetManager.loadJSON("/data/entities.json", function (ents) {
+            self.parseEntities(ents);
             onLoaded();
         });
-        Game.assetManager.loadJSON("/data/level1.json", function (level) {
-            parseLevel(level);
+        this.assetManager.loadJSON("/data/level1.json", function (level) {
+            self.parseLevel(level);
             onLoaded();
         });
-    }
-    function parseEntities(ents) {
+    };
+    Game.prototype.parseEntities = function (ents) {
         for(var entity in ents) {
             if(entity !== "assets") {
-                var newEntity = new Entity();
+                var newEntity = new Entity(this.generateEntityId());
                 for(var component in ents[entity]) {
                     var newComponent = null;
-                    switch(component.toLowerCase()) {
-                        case Components.RENDER: {
-                            newComponent = new RenderComponent(newEntity);
-                            break;
-
-                        }
-                        case Components.POSITION: {
-                            newComponent = new PositionComponent(newEntity);
-                            break;
-
-                        }
-                    }
-                    if(newComponent != null) {
+                    if(this._componentMap[component.toLowerCase()]) {
+                        newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
                         newComponent.initialize(ents[entity][component]);
+                        newEntity.addComponent(newComponent);
+                    } else {
+                        Logger.error("Component not found: " + component);
                     }
-                    newEntity.addComponent(newComponent);
                 }
-                Game.entities.add(newEntity);
+                this.entities.add(newEntity);
             }
         }
-    }
-    function parseLevel(level) {
-    }
-    function setCanvas(canv) {
-        Game.canvas = canv;
-        Game.context = canv.getContext("2d");
-    }
-    Game.setCanvas = setCanvas;
-    function start() {
-        loadEntities(function () {
-            Game.timer.start();
+    };
+    Game.prototype.parseLevel = function (level) {
+    };
+    Game.prototype.start = function () {
+        var self = this;
+        this.loadEntities(function () {
+            self.timer.start();
         });
-    }
-    Game.start = start;
-})(Game || (Game = {}));
-
+    };
+    Game.prototype.draw = function (image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight) {
+        this.context.drawImage(image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight);
+    };
+    Game.prototype.generateEntityId = function () {
+        return this._lastId;
+    };
+    return Game;
+})();
 var App;
 (function (App) {
     $(document).ready(function () {
         var canvas = $("#gameCanvas")[0];
-        Game.setCanvas(canvas);
-        Game.start();
+        var game = new Game(canvas);
+        game.start();
     });
 })(App || (App = {}));
 

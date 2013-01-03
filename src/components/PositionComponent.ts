@@ -10,19 +10,21 @@ interface IPosition
 
 class PositionComponent implements IComponent
 {
+    private _game: Game;
     private _entity: Entity;
     private _x: number;
     private _y: number;
     name: string = Components.POSITION;
 
-    constructor(entity: Entity)
+    constructor(game: Game, entity: Entity)
     {
+        this._game = game;
         this._entity = entity;
         this._x = 0;
         this._y = 0;
     }
 
-    update(): void
+    update(ticks: number): void
     {
     }
 

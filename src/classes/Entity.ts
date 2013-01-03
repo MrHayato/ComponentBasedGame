@@ -1,12 +1,16 @@
-﻿///<reference path="../components/IComponent.ts" />
+﻿///<reference path="Logger.ts" />
+///<reference path="Game.ts" />
+///<reference path="../components/IComponent.ts" />
 
 class Entity
 {
+    private _id: number;
     components: any;
 
-    constructor()
+    constructor(id: number)
     {
         this.components = {};
+        this._id = id;
     }
 
     addComponent(component: IComponent)
@@ -17,10 +21,11 @@ class Entity
     getComponent(componentName: string): IComponent
     {
         if (this.components[componentName])
+        {
             return this.components[componentName];
+        }
         else
         {
-            Logger.error("Component not found: " + componentName);
             return undefined;
         }
     }

@@ -2,6 +2,6 @@
 {
     name: string;
 
-    update();
+    update(ticks: number);
     initialize(settings: any);
 }
