@@ -38,4 +38,10 @@ class PositionComponent implements IComponent
     {
         return { x: this._x, y: this._y };
     }
+
+    setPosition(x: number, y: number)
+    {
+        this._x = x;
+        this._y = y;
+    }
 }

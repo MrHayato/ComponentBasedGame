@@ -1,6 +1,7 @@
 ﻿///<reference path="Entity.ts" />
 ///<reference path="EntityArray.ts" />
 ///<reference path="AssetManager.ts" />
+///<reference path="Scene.ts" />
 ///<reference path="Timer.ts" />
 ///<reference path="../components/RenderComponent.ts" />
 ///<reference path="../components/PositionComponent.ts" />
@@ -9,19 +10,20 @@
 
 class Game
 {
-    entities: EntityArray;
     timer: Timer;
     assetManager: AssetManager;
     context: CanvasRenderingContext2D;
+    scene: Scene;
 
     private _lastId: number;
     private _canvas: HTMLCanvasElement;
+    private _gameEntities: { [key: string]: Entity; };
     private _componentMap: { [key: string]: any; };
 
     constructor (canvas: HTMLCanvasElement)
     {
         var self = this;
-        this.entities = new EntityArray();
+        this._gameEntities = {};
         this.timer = new Timer({ fps: 60, tick: function () { self.update(); } });
         this.assetManager = new AssetManager();
         this._canvas = canvas;
@@ -44,34 +46,22 @@ class Game
             if (components[i] === Components.RENDER)
                 this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
-            this.entities.updateByComponent(components[i], this.timer.currentTime());
+            this.scene.getEntities().updateByComponent(components[i], this.timer.currentTime());
         }
     }
 
     private loadEntities(callback: () => any)
     {
         var self = this;
-        var numFiles = 2;
-        var loaded = 0;
-        var onLoaded = function ()
-        {
-            loaded++;
-
-            if (loaded >= numFiles && $.isFunction(callback))
-            {
-                callback();
-            }
-        };
 
         this.assetManager.loadJSON("/data/entities.json", function (ents)
         {
             self.parseEntities(ents);
-            onLoaded();
-        });
-        this.assetManager.loadJSON("/data/level1.json", function (level)
-        {
-            self.parseLevel(level);
-            onLoaded();
+            self.assetManager.loadJSON("/data/level1.json", function (level)
+            {
+                self.parseLevel(level);
+                callback();
+            });
         });
     }
 
@@ -81,32 +71,68 @@ class Game
         {
             if (entity !== "assets")
             {
-                var newEntity = new Entity(this.generateEntityId());
-
-                for (var component in ents[entity])
-                {
-                    var newComponent: IComponent = null;
-
-                    if (this._componentMap[component.toLowerCase()])
-                    {
-                        newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
-                        newComponent.initialize(ents[entity][component]);
-                        newEntity.addComponent(newComponent);
-                    }
-                    else
-                    {
-                        Logger.error("Component not found: " + component);
-                    }
-                }
-
-                this.entities.add(newEntity);
+                this._gameEntities[entity] = ents[entity];
             }
         }
     }
 
     private parseLevel(level)
     {
+        this.scene = new Scene();
 
+        this.scene.name = level["name"];
+        this.addEntitiesToScene(level["entities"]);
+    }
+
+    private createEntity(entity: string, settings): Entity
+    {
+        var entityData = this._gameEntities[entity];
+
+        if (!entityData)
+        {
+            Logger.error("Entity not found: " + entity);
+            return;
+        }
+
+        $.extend(true, entityData, settings);
+        var newEntity = new Entity(this.generateEntityId());
+
+        for (var component in entityData)
+        {
+            var newComponent: IComponent = null;
+
+            if (this._componentMap[component.toLowerCase()])
+            {
+                newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
+                newComponent.initialize(entityData[component]);
+                newEntity.addComponent(newComponent);
+            }
+            else
+            {
+                Logger.error("Component not found: " + component);
+            }
+        }
+
+        this.scene.addEntity(newEntity);
+
+        return newEntity;
+    }
+
+    private addEntitiesToScene(entities)
+    {
+        for (var i = 0; i < entities.length; i++)
+        {
+            var entityName = entities[i].entity;
+            var entity = this.createEntity(entityName, entities[i].attributes);
+
+            if (!entity)
+            {
+                Logger.error("Entity not loaded: " + entityName);
+                continue;
+            }
+
+            this.scene.addEntity(entity);
+        }
     }
 
     start()
@@ -116,12 +142,6 @@ class Game
         {
             self.timer.start();
         });
-    }
-
-    draw(image: HTMLElement, offsetX: number, offsetY: number, width?: number, height?: number, 
-        canvasOffsetX?: number, canvasOffsetY?: number, canvasImageWidth?: number, canvasImageHeight?: number): void
-    {
-        this.context.drawImage(image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight);
     }
 
     generateEntityId(): number

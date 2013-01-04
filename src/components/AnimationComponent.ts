@@ -59,8 +59,8 @@ class AnimationComponent implements IComponent
         var spriteSize = this.getSpriteDimensions(sprite);
         var frameWidth: number = animationFrames.width;
         var frameHeight: number = animationFrames.height;
-        var rows = Math.floor(spriteSize[0] / frameWidth);
-        var cols = Math.floor(spriteSize[1] / frameHeight);
+        var cols = Math.floor(spriteSize[0] / frameWidth);
+        var rows = Math.floor(spriteSize[1] / frameHeight);
         this._animations = {};
 
         for (var frameKey in animationFrames.frames)
@@ -102,7 +102,10 @@ class AnimationComponent implements IComponent
             this._animations[name] = animation;
         }
 
-        this.setAnimation("walk");
+        if (animationFrames.startAnimation)
+        {
+            this.setAnimation(animationFrames.startAnimation);
+        }
     }
 
     private getSprite(): HTMLCanvasElement

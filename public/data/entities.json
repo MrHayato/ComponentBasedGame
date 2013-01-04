@@ -1,31 +1,38 @@
 ﻿{
     "player": {
-        "sprite": "thu",
+        "sprite": "player",
         "animation": {
-            "width": 48,
-            "height": 68,
+            "width": 64,
+            "height": 96,
+            "startAnimation": "walk",
             "frames": {
                 "idle": {
                     "loop": true,
-                    "duration": 150,
-                    "indexes": [0, 0]
+                    "duration": 175,
+                    "indexes": [0, 9]
                 },
                 "walk": {
                     "loop": true,
-                    "duration": 150,
-                    "indexes": [0, 3]
+                    "duration": 110,
+                    "indexes": [10, 15]
                 },
                 "run": {
                     "loop": true,
-                    "duration": 75,
-                    "indexes": [10, 12]
+                    "duration": 110,
+                    "indexes": [20, 23]
+                },
+                "attack": {
+                    "loop": true,
+                    "duration": 60,
+                    "indexes": [30, 32]
                 }
             }
         },
         "position": {
             "x": 200,
             "y": 0
-        }
+        },
+        "movement": {}
     },
     "crate": {
         "sprite": "crate",
@@ -36,8 +43,8 @@
     },
     "assets": [
         {
-            "key": "thu",
-            "src": "/sprites/entities/thu.png"
+            "key": "player",
+            "src": "/sprites/entities/chrono.png"
         },
         {
             "key": "crate",

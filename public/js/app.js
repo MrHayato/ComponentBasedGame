@@ -245,6 +245,18 @@ var AssetManager = (function () {
     };
     return AssetManager;
 })();
+var Scene = (function () {
+    function Scene() {
+        this._entities = new EntityArray();
+    }
+    Scene.prototype.getEntities = function () {
+        return this._entities;
+    };
+    Scene.prototype.addEntity = function (entity) {
+        this._entities.add(entity);
+    };
+    return Scene;
+})();
 var Timer = (function () {
     function Timer(settings) {
         this._settings = settings;
@@ -328,8 +340,8 @@ var AnimationComponent = (function () {
         var spriteSize = this.getSpriteDimensions(sprite);
         var frameWidth = animationFrames.width;
         var frameHeight = animationFrames.height;
-        var rows = Math.floor(spriteSize[0] / frameWidth);
-        var cols = Math.floor(spriteSize[1] / frameHeight);
+        var cols = Math.floor(spriteSize[0] / frameWidth);
+        var rows = Math.floor(spriteSize[1] / frameHeight);
         this._animations = {
         };
         for(var frameKey in animationFrames.frames) {
@@ -356,7 +368,9 @@ var AnimationComponent = (function () {
             };
             this._animations[name] = animation;
         }
-        this.setAnimation("walk");
+        if(animationFrames.startAnimation) {
+            this.setAnimation(animationFrames.startAnimation);
+        }
     };
     AnimationComponent.prototype.getSprite = function () {
         var renderComponent = this._entity.getComponent(Components.RENDER);
@@ -431,7 +445,8 @@ var RenderComponent = (function () {
 var Game = (function () {
     function Game(canvas) {
         var self = this;
-        this.entities = new EntityArray();
+        this._gameEntities = {
+        };
         this.timer = new Timer({
             fps: 60,
             tick: function () {
@@ -458,56 +473,68 @@ var Game = (function () {
             if(components[i] === Components.RENDER) {
                 this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
             }
-            this.entities.updateByComponent(components[i], this.timer.currentTime());
+            this.scene.getEntities().updateByComponent(components[i], this.timer.currentTime());
         }
     };
     Game.prototype.loadEntities = function (callback) {
         var self = this;
-        var numFiles = 2;
-        var loaded = 0;
-        var onLoaded = function () {
-            loaded++;
-            if(loaded >= numFiles && $.isFunction(callback)) {
-                callback();
-            }
-        };
         this.assetManager.loadJSON("/data/entities.json", function (ents) {
             self.parseEntities(ents);
-            onLoaded();
-        });
-        this.assetManager.loadJSON("/data/level1.json", function (level) {
-            self.parseLevel(level);
-            onLoaded();
+            self.assetManager.loadJSON("/data/level1.json", function (level) {
+                self.parseLevel(level);
+                callback();
+            });
         });
     };
     Game.prototype.parseEntities = function (ents) {
         for(var entity in ents) {
             if(entity !== "assets") {
-                var newEntity = new Entity(this.generateEntityId());
-                for(var component in ents[entity]) {
-                    var newComponent = null;
-                    if(this._componentMap[component.toLowerCase()]) {
-                        newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
-                        newComponent.initialize(ents[entity][component]);
-                        newEntity.addComponent(newComponent);
-                    } else {
-                        Logger.error("Component not found: " + component);
-                    }
-                }
-                this.entities.add(newEntity);
+                this._gameEntities[entity] = ents[entity];
             }
         }
     };
     Game.prototype.parseLevel = function (level) {
+        this.scene = new Scene();
+        this.scene.name = level["name"];
+        this.addEntitiesToScene(level["entities"]);
+    };
+    Game.prototype.createEntity = function (entity, settings) {
+        var entityData = this._gameEntities[entity];
+        if(!entityData) {
+            Logger.error("Entity not found: " + entity);
+            return;
+        }
+        $.extend(true, entityData, settings);
+        var newEntity = new Entity(this.generateEntityId());
+        for(var component in entityData) {
+            var newComponent = null;
+            if(this._componentMap[component.toLowerCase()]) {
+                newComponent = new this._componentMap[component.toLowerCase()](this, newEntity);
+                newComponent.initialize(entityData[component]);
+                newEntity.addComponent(newComponent);
+            } else {
+                Logger.error("Component not found: " + component);
+            }
+        }
+        this.scene.addEntity(newEntity);
+        return newEntity;
+    };
+    Game.prototype.addEntitiesToScene = function (entities) {
+        for(var i = 0; i < entities.length; i++) {
+            var entityName = entities[i].entity;
+            var entity = this.createEntity(entityName, entities[i].attributes);
+            if(!entity) {
+                Logger.error("Entity not loaded: " + entityName);
+                continue;
+            }
+            this.scene.addEntity(entity);
+        }
     };
     Game.prototype.start = function () {
         var self = this;
         this.loadEntities(function () {
             self.timer.start();
         });
-    };
-    Game.prototype.draw = function (image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight) {
-        this.context.drawImage(image, offsetX, offsetY, width, height, canvasOffsetX, canvasOffsetY, canvasImageWidth, canvasImageHeight);
     };
     Game.prototype.generateEntityId = function () {
         return this._lastId;
