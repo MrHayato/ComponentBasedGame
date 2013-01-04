@@ -79,11 +79,13 @@
     <Content Include="src\classes\Entity.ts" />
     <Content Include="src\classes\EntityArray.ts" />
     <Content Include="src\classes\Game.ts" />
+    <Content Include="src\classes\Input.ts" />
     <Content Include="src\classes\Logger.ts" />
     <Content Include="src\classes\Scene.ts" />
     <Content Include="src\classes\Timer.ts" />
     <Content Include="src\components\AnimationComponent.ts" />
     <Content Include="src\components\MovementComponent.ts" />
+    <Content Include="src\components\PhysicsComponent.ts" />
     <Content Include="src\components\PositionComponent.ts" />
     <Content Include="src\components\RenderComponent.ts" />
     <Content Include="src\components\IComponent.ts" />

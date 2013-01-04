@@ -5,6 +5,7 @@
 
 interface IAnimation
 {
+    name: string;
     loop: bool;
     duration: number;
     frames: HTMLCanvasElement[];
@@ -93,7 +94,8 @@ class AnimationComponent implements IComponent
                 frames.push(animationFrame);
             }
 
-            var animation = {
+            var animation: IAnimation = {
+                name: name,
                 loop: loop,
                 duration: duration,
                 frames: frames
@@ -138,11 +140,17 @@ class AnimationComponent implements IComponent
     {
         if (this._currentFrame >= this._currentAnimation.frames.length)
             this._currentFrame = this._currentAnimation.frames.length - 1;
-        return this._currentAnimation.frames[this._currentFrame];
+        
+        var frame = this._currentAnimation.frames[this._currentFrame];
+
+        return frame;
     }
 
     setAnimation(animationName: string, onAnimationComplete?: () => void)
     {
+        if (this._currentAnimation && this._currentAnimation.name === animationName)
+            return;
+
         var animation: IAnimation = this._animations[animationName];
         if (!animation)
         {

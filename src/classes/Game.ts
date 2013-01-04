@@ -5,7 +5,9 @@
 ///<reference path="Timer.ts" />
 ///<reference path="../components/RenderComponent.ts" />
 ///<reference path="../components/PositionComponent.ts" />
+///<reference path="../components/PhysicsComponent.ts" />
 ///<reference path="../components/AnimationComponent.ts" />
+///<reference path="../components/MovementComponent.ts" />
 ///<reference path="../definitions/jaws.d.ts" />
 
 class Game
@@ -31,22 +33,22 @@ class Game
         this._lastId = 0;
 
         this._componentMap = {};
-        this._componentMap[Components.RENDER] = RenderComponent;
+        this._componentMap[Components.MOVEMENT] = MovementComponent;
+        this._componentMap[Components.PHYSICS] = PhysicsComponent;
         this._componentMap[Components.POSITION] = PositionComponent;
         this._componentMap[Components.ANIMATION] = AnimationComponent;
+        this._componentMap[Components.RENDER] = RenderComponent;
     }
 
     private update()
     {
-        var components = [Components.POSITION, Components.ANIMATION, Components.RENDER];
-        
         //Update components
-        for (var i = 0; i < components.length; i++)
+        for (var component in this._componentMap)
         {
-            if (components[i] === Components.RENDER)
+            if (component === Components.RENDER)
                 this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
-            this.scene.getEntities().updateByComponent(components[i], this.timer.currentTime());
+            this.scene.getEntities().updateByComponent(component, this.timer.currentTime());
         }
     }
 

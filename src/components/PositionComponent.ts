@@ -1,6 +1,7 @@
 ﻿///<reference path="../classes/Game.ts" />
 ///<reference path="../classes/Entity.ts" />
 ///<reference path="../components/IComponent.ts" />
+///<reference path="../components/PhysicsComponent.ts" />
 
 interface IPosition
 {
@@ -12,36 +13,46 @@ class PositionComponent implements IComponent
 {
     private _game: Game;
     private _entity: Entity;
-    private _x: number;
-    private _y: number;
+    private _position: IPosition;
     name: string = Components.POSITION;
 
     constructor(game: Game, entity: Entity)
     {
         this._game = game;
         this._entity = entity;
-        this._x = 0;
-        this._y = 0;
+        this._position = {
+            x: 0,
+            y: 0
+        };
     }
 
     update(ticks: number): void
     {
+        var physComp = <PhysicsComponent>this._entity.getComponent(Components.PHYSICS);
+
+        if (physComp)
+        {
+            var velocity = physComp.getVelocity();
+            this._position.x += velocity.x;
+            this._position.y += velocity.y;
+        }
     }
 
     initialize(settings: any): void
     {
-        this._x = settings.x;
-        this._y = settings.y;
+        this._position = {
+            x: settings.x,
+            y: settings.y
+        };
     }
 
     getPosition(): IPosition
     {
-        return { x: this._x, y: this._y };
+        return this._position;
     }
 
-    setPosition(x: number, y: number)
+    setPosition(position: IPosition)
     {
-        this._x = x;
-        this._y = y;
+        this._position = position;
     }
 }

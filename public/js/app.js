@@ -1,16 +1,3 @@
-var Keys;
-(function (Keys) {
-    Keys.LEFT = "left";
-    Keys.RIGHT = "right";
-    Keys.UP = "up";
-    Keys.DOWN = "down";
-    Keys.SHIFT = "shift";
-    Keys.Z = "z";
-    Keys.X = "x";
-    Keys.C = "c";
-    Keys.S = "s";
-})(Keys || (Keys = {}));
-
 var FileTypes;
 (function (FileTypes) {
     FileTypes.UNKNOWN = "unknown";
@@ -21,6 +8,17 @@ var FileTypes;
 
 var Constants;
 (function (Constants) {
+    var ie = ((function () {
+        var undef;
+        var v = 3;
+        var div = document.createElement('div');
+
+        while(div.innerHTML = '<!--[if gt IE ' + (++v) + ']><i></i><![endif]-->' , div.getElementsByTagName('i')[0]) {
+            ; ;
+        }
+        return v > 4 ? v : undef;
+    })());
+    Constants.IS_IE = !!ie;
     Constants.DEBUG = true;
     Constants.DEFAULT_FPS = 60;
     Constants.VIEWPORT_WIDTH = 900;
@@ -28,8 +26,8 @@ var Constants;
     Constants.FRICTION = 0.85;
     Constants.GRAVITY = 0.7;
     Constants.PLAYER_JUMP_HEIGHT = 10;
-    Constants.PLAYER_WALK_SPEED_X = 2;
-    Constants.PLAYER_WALK_SPEED_Y = 1.25;
+    Constants.PLAYER_WALK_SPEED_X = 1;
+    Constants.PLAYER_WALK_SPEED_Y = 0.85;
     Constants.PLAYER_RUN_MULTIPLIER = 2.25;
     Constants.PLAYER_RUNNING_JUMP_MULTIPLIER = 1.25;
     Constants.PLAYER_LANDING_DELAY = 125;
@@ -40,6 +38,8 @@ var Components;
     Components.RENDER = "sprite";
     Components.POSITION = "position";
     Components.ANIMATION = "animation";
+    Components.MOVEMENT = "movement";
+    Components.PHYSICS = "physics";
 })(Components || (Components = {}));
 
 var Logger;
@@ -288,25 +288,61 @@ var Timer = (function () {
     };
     return Timer;
 })();
+var PhysicsComponent = (function () {
+    function PhysicsComponent(game, entity) {
+        this.name = Components.PHYSICS;
+        this._game = game;
+        this._entity = entity;
+        this._velocity = {
+            x: 0,
+            y: 0
+        };
+    }
+    PhysicsComponent.prototype.update = function (ticks) {
+    };
+    PhysicsComponent.prototype.initialize = function (settings) {
+        this._velocity = {
+            x: settings.x,
+            y: settings.y
+        };
+    };
+    PhysicsComponent.prototype.getVelocity = function () {
+        return this._velocity;
+    };
+    PhysicsComponent.prototype.setVelocity = function (velocity) {
+        this._velocity = velocity;
+    };
+    return PhysicsComponent;
+})();
 var PositionComponent = (function () {
     function PositionComponent(game, entity) {
         this.name = Components.POSITION;
         this._game = game;
         this._entity = entity;
-        this._x = 0;
-        this._y = 0;
+        this._position = {
+            x: 0,
+            y: 0
+        };
     }
     PositionComponent.prototype.update = function (ticks) {
+        var physComp = this._entity.getComponent(Components.PHYSICS);
+        if(physComp) {
+            var velocity = physComp.getVelocity();
+            this._position.x += velocity.x;
+            this._position.y += velocity.y;
+        }
     };
     PositionComponent.prototype.initialize = function (settings) {
-        this._x = settings.x;
-        this._y = settings.y;
+        this._position = {
+            x: settings.x,
+            y: settings.y
+        };
     };
     PositionComponent.prototype.getPosition = function () {
-        return {
-            x: this._x,
-            y: this._y
-        };
+        return this._position;
+    };
+    PositionComponent.prototype.setPosition = function (position) {
+        this._position = position;
     };
     return PositionComponent;
 })();
@@ -362,6 +398,7 @@ var AnimationComponent = (function () {
                 frames.push(animationFrame);
             }
             var animation = {
+                name: name,
                 loop: loop,
                 duration: duration,
                 frames: frames
@@ -396,9 +433,13 @@ var AnimationComponent = (function () {
         if(this._currentFrame >= this._currentAnimation.frames.length) {
             this._currentFrame = this._currentAnimation.frames.length - 1;
         }
-        return this._currentAnimation.frames[this._currentFrame];
+        var frame = this._currentAnimation.frames[this._currentFrame];
+        return frame;
     };
     AnimationComponent.prototype.setAnimation = function (animationName, onAnimationComplete) {
+        if(this._currentAnimation && this._currentAnimation.name === animationName) {
+            return;
+        }
         var animation = this._animations[animationName];
         if(!animation) {
             Logger.error("Animation '" + animationName + "' not found.");
@@ -420,15 +461,26 @@ var RenderComponent = (function () {
         this.name = Components.RENDER;
         this._game = game;
         this._entity = entity;
+        this._flipped = false;
     }
     RenderComponent.prototype.update = function (ticks) {
         var pos = (this._entity.getComponent(Components.POSITION)).getPosition();
         var animComponent = (this._entity.getComponent(Components.ANIMATION));
+        var sprite;
         if(animComponent) {
-            this._game.context.drawImage(animComponent.getFrame(), pos.x, pos.y);
+            sprite = animComponent.getFrame();
         } else {
-            this._game.context.drawImage(this._sprite, pos.x, pos.y);
+            sprite = this._sprite;
         }
+        var context = this._game.context;
+        context.save();
+        context.translate(pos.x, pos.y);
+        if(this._flipped) {
+            context.scale(-1, 1);
+        }
+        context.translate(-(sprite.width * 0.5), -(sprite.height * 0.5));
+        this._game.context.drawImage(sprite, 0, 0);
+        context.restore();
     };
     RenderComponent.prototype.initialize = function (key) {
         var canvas = this._game.assetManager.get(key);
@@ -440,7 +492,294 @@ var RenderComponent = (function () {
     RenderComponent.prototype.getSprite = function () {
         return this._sprite;
     };
+    RenderComponent.prototype.setFlipped = function (flipped) {
+        this._flipped = flipped;
+    };
     return RenderComponent;
+})();
+var Input;
+(function (Input) {
+    (function (Keys) {
+        ; ;
+        var _keyLookup = {
+        };
+        Keys.LEFT = addKey(37, "left");
+        Keys.RIGHT = addKey(39, "right");
+        Keys.UP = addKey(38, "up");
+        Keys.DOWN = addKey(40, "down");
+        Keys.SHIFT = addKey(16, "shift");
+        Keys.BACKSPACE = addKey(8, "backspace");
+        Keys.TAB = addKey(9, "tab");
+        Keys.ENTER = addKey(13, "enter");
+        Keys.CTRL = addKey(17, "ctrl");
+        Keys.ALT = addKey(18, "alt");
+        Keys.PAUSE = addKey(19, "pause");
+        Keys.CAPSLOCK = addKey(20, "capslock");
+        Keys.ESCAPE = addKey(27, "esc");
+        Keys.SPACE = addKey(32, "space");
+        Keys.PAGEUP = addKey(33, "pageup");
+        Keys.PAGEDOWN = addKey(34, "pagedown");
+        Keys.END = addKey(35, "end");
+        Keys.HOME = addKey(36, "home");
+        Keys.INSERT = addKey(45, "insert");
+        Keys.DELETE = addKey(46, "delete");
+        Keys.SELECT_KEY = addKey(93, "selectkey");
+        Keys.MULTIPLY = addKey(106, "multiply");
+        Keys.ADD = addKey(107, "add");
+        Keys.SUBTRACT = addKey(109, "subtract");
+        Keys.DECIMAL = addKey(110, "decimalpoint");
+        Keys.DIVIDE = addKey(111, "divide");
+        Keys.NUMLOCK = addKey(144, "numlock");
+        Keys.SCROLLLOCK = addKey(145, "scrollock");
+        Keys.SEMICOLON = addKey(186, "semicolon");
+        Keys.EQUALS = addKey(187, "equalsign");
+        Keys.COMMA = addKey(188, "comma");
+        Keys.DASH = addKey(189, "dash");
+        Keys.PERIOD = addKey(190, "period");
+        Keys.FORWARD_SLASH = addKey(191, "forwardslash");
+        Keys.GRAVE_ACCENT = addKey(192, "graveaccent");
+        Keys.OPEN_BRACKET = addKey(219, "openbracket");
+        Keys.BACK_SLASH = addKey(220, "backslash");
+        Keys.CLOSE_BRACKET = addKey(221, "closebracket");
+        Keys.SINGLE_QUOTE = addKey(222, "singlequote");
+        Keys.A = addKey(65, "a");
+        Keys.B = addKey(66, "b");
+        Keys.C = addKey(67, "c");
+        Keys.D = addKey(68, "d");
+        Keys.E = addKey(69, "e");
+        Keys.F = addKey(70, "f");
+        Keys.G = addKey(71, "g");
+        Keys.H = addKey(72, "h");
+        Keys.I = addKey(73, "i");
+        Keys.J = addKey(74, "j");
+        Keys.K = addKey(75, "k");
+        Keys.L = addKey(76, "l");
+        Keys.M = addKey(77, "m");
+        Keys.N = addKey(78, "n");
+        Keys.O = addKey(79, "o");
+        Keys.P = addKey(80, "p");
+        Keys.Q = addKey(81, "q");
+        Keys.R = addKey(82, "r");
+        Keys.S = addKey(83, "s");
+        Keys.T = addKey(84, "t");
+        Keys.U = addKey(85, "u");
+        Keys.V = addKey(86, "v");
+        Keys.W = addKey(87, "w");
+        Keys.X = addKey(88, "x");
+        Keys.Y = addKey(89, "y");
+        Keys.Z = addKey(90, "z");
+        Keys._0 = addKey(48, "0");
+        Keys._1 = addKey(49, "1");
+        Keys._2 = addKey(50, "2");
+        Keys._3 = addKey(51, "3");
+        Keys._4 = addKey(52, "4");
+        Keys._5 = addKey(53, "5");
+        Keys._6 = addKey(54, "6");
+        Keys._7 = addKey(55, "7");
+        Keys._8 = addKey(56, "8");
+        Keys._9 = addKey(57, "9");
+        Keys.NUMPAD0 = addKey(96, "numpad0");
+        Keys.NUMPAD1 = addKey(97, "numpad1");
+        Keys.NUMPAD2 = addKey(98, "numpad2");
+        Keys.NUMPAD3 = addKey(99, "numpad3");
+        Keys.NUMPAD4 = addKey(100, "numpad4");
+        Keys.NUMPAD5 = addKey(101, "numpad5");
+        Keys.NUMPAD6 = addKey(102, "numpad6");
+        Keys.NUMPAD7 = addKey(103, "numpad7");
+        Keys.NUMPAD8 = addKey(104, "numpad8");
+        Keys.NUMPAD9 = addKey(105, "numpad9");
+        function addKey(keyCode, keyName) {
+            var key = {
+                keyCode: keyCode,
+                keyName: keyName
+            };
+            _keyLookup[keyCode] = key;
+            return key;
+        }
+        function getKey(keyCode) {
+            return _keyLookup[keyCode];
+        }
+        Keys.getKey = getKey;
+    })(Input.Keys || (Input.Keys = {}));
+    var Keys = Input.Keys;
+
+    (function (Mouse) {
+        ; ;
+        var _buttonLookup = {
+        };
+        Mouse.MOUSE_LEFT = addButton((Constants.IS_IE ? 1 : 0), "mouse_left");
+        Mouse.MOUSE_MIDDLE = addButton((Constants.IS_IE ? 4 : 1), "mouse_middle");
+        Mouse.MOUSE_RIGHT = addButton(2, "mouse_right");
+        function addButton(buttonCode, buttonName) {
+            var button = {
+                buttonCode: buttonCode,
+                buttonName: buttonName
+            };
+            _buttonLookup[buttonCode] = button;
+            return button;
+        }
+        function getButton(buttonCode) {
+            return _buttonLookup[buttonCode];
+        }
+        Mouse.getButton = getButton;
+    })(Input.Mouse || (Input.Mouse = {}));
+    var Mouse = Input.Mouse;
+
+    var _pressedKeys = {
+    };
+    var _preventKeys = [];
+    var _keyUpHandlers = {
+    };
+    var _keyDownHandlers = {
+    };
+    var _mouseUpHandlers = {
+    };
+    var _mouseDownHandlers = {
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("mousedown", handleMouseDown, false);
+    window.addEventListener("mouseup", handleMouseUp, false);
+    window.addEventListener("blur", handleBlur, false);
+    document.oncontextmenu = function () {
+        return false;
+    };
+    function preventDefault(keys) {
+        keys.forEach(function (key) {
+            _preventKeys.push(key.keyCode);
+        });
+    }
+    function allowDefault(keys) {
+        keys.forEach(function (key) {
+            var idx = _preventKeys.indexOf(key.keyCode);
+            _preventKeys.splice(idx, 1);
+        });
+    }
+    function handleBlur(e) {
+        _pressedKeys = {
+        };
+    }
+    function handleKeyUp(e) {
+        e = e || window.event;
+        var key = Keys.getKey(e.keyCode);
+        if(!key) {
+            return;
+        }
+        _pressedKeys[key.keyCode] = false;
+        if(_keyUpHandlers[key.keyCode]) {
+            _keyUpHandlers[key.keyCode](key);
+        }
+        if(_preventKeys[key.keyCode] && e.preventDefault) {
+            e.preventDefault();
+        }
+    }
+    function handleKeyDown(e) {
+        e = e || window.event;
+        var key = Keys.getKey(e.keyCode);
+        if(!key) {
+            return;
+        }
+        _pressedKeys[key.keyCode] = true;
+        if(_keyDownHandlers[key.keyCode]) {
+            _keyDownHandlers[key.keyCode](key);
+        }
+        if(_preventKeys[key.keyCode] && e.preventDefault) {
+            e.preventDefault();
+        }
+    }
+    function handleMouseUp(e) {
+        e = e || window.event;
+        var button = Mouse.getButton(e.button);
+        if(!button) {
+            return;
+        }
+        _pressedKeys[button.buttonCode] = false;
+        if(_mouseUpHandlers[button.buttonCode]) {
+            _mouseUpHandlers[button.buttonCode](button);
+        }
+    }
+    function handleMouseDown(e) {
+        e = e || window.event;
+        var button = Mouse.getButton(e.button);
+        if(!button) {
+            return;
+        }
+        _pressedKeys[button.buttonCode] = false;
+        if(_mouseDownHandlers[button.buttonCode]) {
+            _mouseDownHandlers[button.buttonCode](button);
+        }
+    }
+    function isKeyDown(key) {
+        return !!_pressedKeys[key.keyCode];
+    }
+    Input.isKeyDown = isKeyDown;
+    function onKeyDown(key, callback) {
+        _keyDownHandlers[key.keyName] = callback;
+    }
+    Input.onKeyDown = onKeyDown;
+    function onKeyUp(key, callback) {
+        _keyUpHandlers[key.keyName] = callback;
+    }
+    Input.onKeyUp = onKeyUp;
+    function onButtonDown(button, callback) {
+        _mouseDownHandlers[button.buttonName] = callback;
+    }
+    Input.onButtonDown = onButtonDown;
+    function onButtonUp(button, callback) {
+        _mouseUpHandlers[button.buttonName] = callback;
+    }
+    Input.onButtonUp = onButtonUp;
+})(Input || (Input = {}));
+
+var MovementComponent = (function () {
+    function MovementComponent(game, entity) {
+        this.name = Components.MOVEMENT;
+        this._game = game;
+        this._entity = entity;
+        this._flipped = false;
+    }
+    MovementComponent.prototype.update = function (ticks) {
+        var physComp = this._entity.getComponent(Components.PHYSICS);
+        var animComp = this._entity.getComponent(Components.ANIMATION);
+        var rendComp = this._entity.getComponent(Components.RENDER);
+        var animation = "idle";
+        var vx = 0;
+        var vy = 0;
+        if(Input.isKeyDown(Input.Keys.LEFT)) {
+            this._flipped = true;
+            vx -= Constants.PLAYER_WALK_SPEED_X;
+            animation = "walk";
+        }
+        if(Input.isKeyDown(Input.Keys.RIGHT)) {
+            this._flipped = false;
+            vx += Constants.PLAYER_WALK_SPEED_X;
+            animation = "walk";
+        }
+        if(Input.isKeyDown(Input.Keys.UP)) {
+            vy -= Constants.PLAYER_WALK_SPEED_Y;
+            animation = "walk";
+        }
+        if(Input.isKeyDown(Input.Keys.DOWN)) {
+            vy += Constants.PLAYER_WALK_SPEED_Y;
+            animation = "walk";
+        }
+        if(Input.isKeyDown(Input.Keys.SHIFT)) {
+            vx *= Constants.PLAYER_RUN_MULTIPLIER;
+            vy *= Constants.PLAYER_RUN_MULTIPLIER;
+            if(animation === "walk") {
+                animation = "run";
+            }
+        }
+        animComp.setAnimation(animation);
+        physComp.setVelocity({
+            x: vx,
+            y: vy
+        });
+        rendComp.setFlipped(this._flipped);
+    };
+    MovementComponent.prototype.initialize = function (key) {
+    };
+    return MovementComponent;
 })();
 var Game = (function () {
     function Game(canvas) {
@@ -459,21 +798,18 @@ var Game = (function () {
         this._lastId = 0;
         this._componentMap = {
         };
-        this._componentMap[Components.RENDER] = RenderComponent;
+        this._componentMap[Components.MOVEMENT] = MovementComponent;
+        this._componentMap[Components.PHYSICS] = PhysicsComponent;
         this._componentMap[Components.POSITION] = PositionComponent;
         this._componentMap[Components.ANIMATION] = AnimationComponent;
+        this._componentMap[Components.RENDER] = RenderComponent;
     }
     Game.prototype.update = function () {
-        var components = [
-            Components.POSITION, 
-            Components.ANIMATION, 
-            Components.RENDER
-        ];
-        for(var i = 0; i < components.length; i++) {
-            if(components[i] === Components.RENDER) {
+        for(var component in this._componentMap) {
+            if(component === Components.RENDER) {
                 this.context.clearRect(0, 0, this._canvas.width, this._canvas.height);
             }
-            this.scene.getEntities().updateByComponent(components[i], this.timer.currentTime());
+            this.scene.getEntities().updateByComponent(component, this.timer.currentTime());
         }
     };
     Game.prototype.loadEntities = function (callback) {
