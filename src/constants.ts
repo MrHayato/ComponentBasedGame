@@ -70,6 +70,8 @@ module Components
     export var RENDER = "sprite";
     export var POSITION = "position";
     export var ANIMATION = "animation";
-    export var MOVEMENT = "movement";
+    export var AI_MOVEMENT = "ai_movement";
+    export var INPUT_MOVEMENT = "input_movement";
+    export var MOVEMENT_ANIMATION = "movement_animation";
     export var PHYSICS = "physics";
 }

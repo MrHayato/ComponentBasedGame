@@ -1,29 +1,21 @@
 ﻿///<reference path="../classes/Game.ts" />
 ///<reference path="../classes/Entity.ts" />
+///<reference path="../classes/Point.ts" />
 ///<reference path="../components/IComponent.ts" />
 ///<reference path="../components/PhysicsComponent.ts" />
-
-interface IPosition
-{
-    x: number;
-    y: number;
-}
 
 class PositionComponent implements IComponent
 {
     private _game: Game;
     private _entity: Entity;
-    private _position: IPosition;
+    private _position: Point;
     name: string = Components.POSITION;
 
     constructor(game: Game, entity: Entity)
     {
         this._game = game;
         this._entity = entity;
-        this._position = {
-            x: 0,
-            y: 0
-        };
+        this._position = new Point(0, 0);
     }
 
     update(ticks: number): void
@@ -35,23 +27,23 @@ class PositionComponent implements IComponent
             var velocity = physComp.getVelocity();
             this._position.x += velocity.x;
             this._position.y += velocity.y;
+
+            if (this._entity.id === 0)
+                this._game.eventManager.send("entity_moved", new EventMessage(this._entity, this._position));
         }
     }
 
     initialize(settings: any): void
     {
-        this._position = {
-            x: settings.x,
-            y: settings.y
-        };
+        this._position = new Point(settings.x, settings.y);
     }
 
-    getPosition(): IPosition
+    getPosition(): Point
     {
         return this._position;
     }
 
-    setPosition(position: IPosition)
+    setPosition(position: Point)
     {
         this._position = position;
     }

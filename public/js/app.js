@@ -38,7 +38,9 @@ var Components;
     Components.RENDER = "sprite";
     Components.POSITION = "position";
     Components.ANIMATION = "animation";
-    Components.MOVEMENT = "movement";
+    Components.AI_MOVEMENT = "ai_movement";
+    Components.INPUT_MOVEMENT = "input_movement";
+    Components.MOVEMENT_ANIMATION = "movement_animation";
     Components.PHYSICS = "physics";
 })(Components || (Components = {}));
 
@@ -76,7 +78,7 @@ var Entity = (function () {
     function Entity(id) {
         this.components = {
         };
-        this._id = id;
+        this.id = id;
     }
     Entity.prototype.addComponent = function (component) {
         this.components[component.name] = component;
@@ -245,6 +247,39 @@ var AssetManager = (function () {
     };
     return AssetManager;
 })();
+var EventMessage = (function () {
+    function EventMessage(source, message) {
+        this.source = source;
+        this.message = message;
+    }
+    return EventMessage;
+})();
+var EventManager = (function () {
+    function EventManager() {
+        this._events = {
+        };
+    }
+    EventManager.prototype.listen = function (eventName, callback, context) {
+        if(!this._events[eventName]) {
+            this._events[eventName] = [];
+        }
+        var cb = {
+            callback: callback,
+            context: context
+        };
+        this._events[eventName].push(cb);
+    };
+    EventManager.prototype.send = function (eventName, message) {
+        if(!this._events[eventName]) {
+            Logger.warning("No '" + eventName + "' events found.");
+        }
+        for(var i = 0; i < this._events[eventName].length; i++) {
+            var cb = this._events[eventName][i];
+            cb.callback.call(cb.context, message);
+        }
+    };
+    return EventManager;
+})();
 var Scene = (function () {
     function Scene() {
         this._entities = new EntityArray();
@@ -264,6 +299,13 @@ var Timer = (function () {
         this._fps = settings.fps || Constants.DEFAULT_FPS;
         this._interval = Math.floor(1000 / this._fps);
         this._initialTime = null;
+        var self = this;
+        window.addEventListener("blur", function () {
+            self.stop();
+        });
+        window.addEventListener("focus", function () {
+            self.start();
+        });
     }
     Timer.prototype.tick = function () {
         var self = this;
@@ -288,29 +330,66 @@ var Timer = (function () {
     };
     return Timer;
 })();
+var Point = (function () {
+    function Point(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    Point.prototype.distanceTo = function (target) {
+        return Math.sqrt(Math.pow(this.x - target.x, 2) + Math.pow(this.y - target.y, 2));
+    };
+    return Point;
+})();
+var Vector = (function () {
+    function Vector(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    Vector.prototype.length = function () {
+        return Math.sqrt((this.x * this.x) + (this.y * this.y));
+    };
+    Vector.prototype.normalize = function () {
+        var length = this.length();
+        this.x = this.x / length;
+        this.y = this.y / length;
+    };
+    Vector.prototype.dotProduct = function (v) {
+        return (this.x * v.x + this.y * v.y);
+    };
+    Vector.prototype.setX = function (x) {
+        this.x = x;
+    };
+    Vector.prototype.setY = function (y) {
+        this.y = y;
+    };
+    Vector.prototype.setLength = function (length) {
+        var r = length / this.length();
+        this.x *= r;
+        this.y *= r;
+    };
+    Vector.prototype.setVelocity = function (x, y) {
+        this.setX(x);
+        this.setY(y);
+    };
+    return Vector;
+})();
 var PhysicsComponent = (function () {
     function PhysicsComponent(game, entity) {
         this.name = Components.PHYSICS;
         this._game = game;
         this._entity = entity;
-        this._velocity = {
-            x: 0,
-            y: 0
-        };
+        this._velocity = new Vector(0, 0);
     }
     PhysicsComponent.prototype.update = function (ticks) {
     };
     PhysicsComponent.prototype.initialize = function (settings) {
-        this._velocity = {
-            x: settings.x,
-            y: settings.y
-        };
+        this._velocity.setVelocity(settings.x, settings.y);
     };
     PhysicsComponent.prototype.getVelocity = function () {
         return this._velocity;
     };
-    PhysicsComponent.prototype.setVelocity = function (velocity) {
-        this._velocity = velocity;
+    PhysicsComponent.prototype.setVelocity = function (x, y) {
+        this._velocity.setVelocity(x, y);
     };
     return PhysicsComponent;
 })();
@@ -319,10 +398,7 @@ var PositionComponent = (function () {
         this.name = Components.POSITION;
         this._game = game;
         this._entity = entity;
-        this._position = {
-            x: 0,
-            y: 0
-        };
+        this._position = new Point(0, 0);
     }
     PositionComponent.prototype.update = function (ticks) {
         var physComp = this._entity.getComponent(Components.PHYSICS);
@@ -330,13 +406,13 @@ var PositionComponent = (function () {
             var velocity = physComp.getVelocity();
             this._position.x += velocity.x;
             this._position.y += velocity.y;
+            if(this._entity.id === 0) {
+                this._game.eventManager.send("entity_moved", new EventMessage(this._entity, this._position));
+            }
         }
     };
     PositionComponent.prototype.initialize = function (settings) {
-        this._position = {
-            x: settings.x,
-            y: settings.y
-        };
+        this._position = new Point(settings.x, settings.y);
     };
     PositionComponent.prototype.getPosition = function () {
         return this._position;
@@ -731,55 +807,103 @@ var Input;
     Input.onButtonUp = onButtonUp;
 })(Input || (Input = {}));
 
-var MovementComponent = (function () {
-    function MovementComponent(game, entity) {
-        this.name = Components.MOVEMENT;
+var AIMovementComponent = (function () {
+    function AIMovementComponent(game, entity) {
+        this.name = Components.AI_MOVEMENT;
         this._game = game;
         this._entity = entity;
-        this._flipped = false;
+        this._target = null;
+        this._game.eventManager.listen("entity_moved", this.entityMoved, this);
     }
-    MovementComponent.prototype.update = function (ticks) {
+    AIMovementComponent.prototype.update = function (ticks) {
         var physComp = this._entity.getComponent(Components.PHYSICS);
-        var animComp = this._entity.getComponent(Components.ANIMATION);
-        var rendComp = this._entity.getComponent(Components.RENDER);
-        var animation = "idle";
+        var vx = 0;
+        var vy = 0;
+        if(this._target !== null) {
+            var position = (this._entity.getComponent(Components.POSITION)).getPosition();
+            if(Math.abs(position.distanceTo(this._target)) <= 150) {
+                var dir = new Vector(this._target.x - position.x, this._target.y - position.y);
+                dir.setLength(this._speed);
+                vx = dir.x;
+                vy = dir.y;
+            }
+        }
+        physComp.setVelocity(vx, vy);
+    };
+    AIMovementComponent.prototype.entityMoved = function (message) {
+        var location = message.message;
+        this._target = location;
+    };
+    AIMovementComponent.prototype.initialize = function (key) {
+        this._speed = key.speed;
+    };
+    return AIMovementComponent;
+})();
+var InputMovementComponent = (function () {
+    function InputMovementComponent(game, entity) {
+        this.name = Components.INPUT_MOVEMENT;
+        this._game = game;
+        this._entity = entity;
+    }
+    InputMovementComponent.prototype.update = function (ticks) {
+        var physComp = this._entity.getComponent(Components.PHYSICS);
         var vx = 0;
         var vy = 0;
         if(Input.isKeyDown(Input.Keys.LEFT)) {
-            this._flipped = true;
             vx -= Constants.PLAYER_WALK_SPEED_X;
-            animation = "walk";
         }
         if(Input.isKeyDown(Input.Keys.RIGHT)) {
-            this._flipped = false;
             vx += Constants.PLAYER_WALK_SPEED_X;
-            animation = "walk";
         }
         if(Input.isKeyDown(Input.Keys.UP)) {
             vy -= Constants.PLAYER_WALK_SPEED_Y;
-            animation = "walk";
         }
         if(Input.isKeyDown(Input.Keys.DOWN)) {
             vy += Constants.PLAYER_WALK_SPEED_Y;
-            animation = "walk";
         }
         if(Input.isKeyDown(Input.Keys.SHIFT)) {
             vx *= Constants.PLAYER_RUN_MULTIPLIER;
             vy *= Constants.PLAYER_RUN_MULTIPLIER;
-            if(animation === "walk") {
-                animation = "run";
+        }
+        physComp.setVelocity(vx, vy);
+    };
+    InputMovementComponent.prototype.initialize = function (key) {
+    };
+    return InputMovementComponent;
+})();
+var MovementAnimationComponent = (function () {
+    function MovementAnimationComponent(game, entity) {
+        this.name = Components.MOVEMENT_ANIMATION;
+        this._game = game;
+        this._entity = entity;
+        this._flipped = false;
+    }
+    MovementAnimationComponent.prototype.update = function (ticks) {
+        var physComp = this._entity.getComponent(Components.PHYSICS);
+        var animComp = this._entity.getComponent(Components.ANIMATION);
+        var rendComp = this._entity.getComponent(Components.RENDER);
+        var velocity = physComp.getVelocity();
+        var animation = "idle";
+        if(Math.abs(velocity.x) >= Constants.PLAYER_WALK_SPEED_X * Constants.PLAYER_RUN_MULTIPLIER || Math.abs(velocity.y) >= Constants.PLAYER_WALK_SPEED_Y * Constants.PLAYER_RUN_MULTIPLIER) {
+            animation = "run";
+        } else {
+            if(Math.abs(velocity.x) > 0 || Math.abs(velocity.y) > 0) {
+                animation = "walk";
+            }
+        }
+        if(velocity.x < 0) {
+            this._flipped = true;
+        } else {
+            if(velocity.x > 0) {
+                this._flipped = false;
             }
         }
         animComp.setAnimation(animation);
-        physComp.setVelocity({
-            x: vx,
-            y: vy
-        });
         rendComp.setFlipped(this._flipped);
     };
-    MovementComponent.prototype.initialize = function (key) {
+    MovementAnimationComponent.prototype.initialize = function (key) {
     };
-    return MovementComponent;
+    return MovementAnimationComponent;
 })();
 var Game = (function () {
     function Game(canvas) {
@@ -793,12 +917,15 @@ var Game = (function () {
             }
         });
         this.assetManager = new AssetManager();
+        this.eventManager = new EventManager();
         this._canvas = canvas;
         this.context = canvas.getContext("2d");
         this._lastId = 0;
         this._componentMap = {
         };
-        this._componentMap[Components.MOVEMENT] = MovementComponent;
+        this._componentMap[Components.INPUT_MOVEMENT] = InputMovementComponent;
+        this._componentMap[Components.AI_MOVEMENT] = AIMovementComponent;
+        this._componentMap[Components.MOVEMENT_ANIMATION] = MovementAnimationComponent;
         this._componentMap[Components.PHYSICS] = PhysicsComponent;
         this._componentMap[Components.POSITION] = PositionComponent;
         this._componentMap[Components.ANIMATION] = AnimationComponent;
@@ -852,7 +979,6 @@ var Game = (function () {
                 Logger.error("Component not found: " + component);
             }
         }
-        this.scene.addEntity(newEntity);
         return newEntity;
     };
     Game.prototype.addEntitiesToScene = function (entities) {
@@ -873,7 +999,7 @@ var Game = (function () {
         });
     };
     Game.prototype.generateEntityId = function () {
-        return this._lastId;
+        return this._lastId++;
     };
     return Game;
 })();

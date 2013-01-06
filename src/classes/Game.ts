@@ -1,19 +1,23 @@
 ﻿///<reference path="Entity.ts" />
 ///<reference path="EntityArray.ts" />
 ///<reference path="AssetManager.ts" />
+///<reference path="EventManager.ts" />
 ///<reference path="Scene.ts" />
 ///<reference path="Timer.ts" />
 ///<reference path="../components/RenderComponent.ts" />
 ///<reference path="../components/PositionComponent.ts" />
 ///<reference path="../components/PhysicsComponent.ts" />
 ///<reference path="../components/AnimationComponent.ts" />
-///<reference path="../components/MovementComponent.ts" />
+///<reference path="../components/AIMovementComponent.ts" />
+///<reference path="../components/InputMovementComponent.ts" />
+///<reference path="../components/MovementAnimationComponent.ts" />
 ///<reference path="../definitions/jaws.d.ts" />
 
 class Game
 {
     timer: Timer;
     assetManager: AssetManager;
+    eventManager: EventManager;
     context: CanvasRenderingContext2D;
     scene: Scene;
 
@@ -28,12 +32,15 @@ class Game
         this._gameEntities = {};
         this.timer = new Timer({ fps: 60, tick: function () { self.update(); } });
         this.assetManager = new AssetManager();
+        this.eventManager = new EventManager();
         this._canvas = canvas;
         this.context = canvas.getContext("2d");
         this._lastId = 0;
 
         this._componentMap = {};
-        this._componentMap[Components.MOVEMENT] = MovementComponent;
+        this._componentMap[Components.INPUT_MOVEMENT] = InputMovementComponent;
+        this._componentMap[Components.AI_MOVEMENT] = AIMovementComponent;
+        this._componentMap[Components.MOVEMENT_ANIMATION] = MovementAnimationComponent;
         this._componentMap[Components.PHYSICS] = PhysicsComponent;
         this._componentMap[Components.POSITION] = PositionComponent;
         this._componentMap[Components.ANIMATION] = AnimationComponent;
@@ -115,8 +122,6 @@ class Game
             }
         }
 
-        this.scene.addEntity(newEntity);
-
         return newEntity;
     }
 
@@ -148,6 +153,6 @@ class Game
 
     generateEntityId(): number
     {
-        return this._lastId;
+        return this._lastId++;
     }
 }

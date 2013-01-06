@@ -2,7 +2,7 @@
     "name": "Level 1",
     "entities": [
         {
-            "entity": "crate",
+            "entity": "player",
             "attributes": {
                 "position": {
                     "x": 400,
@@ -11,7 +11,16 @@
             }
         },
         {
-            "entity": "crate",
+            "entity": "ghost",
+            "attributes": {
+                "position": {
+                    "x": 100,
+                    "y": 100
+                }
+            }
+        },
+        {
+            "entity": "ghost",
             "attributes": {
                 "position": {
                     "x": 700,
@@ -20,11 +29,11 @@
             }
         },
         {
-            "entity": "player",
+            "entity": "ghost",
             "attributes": {
                 "position": {
-                    "x": 400,
-                    "y": 400
+                    "x": 500,
+                    "y": 220
                 }
             }
         }

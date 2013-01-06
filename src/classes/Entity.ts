@@ -4,13 +4,13 @@
 
 class Entity
 {
-    private _id: number;
+    id: number;
     components: any;
 
     constructor(id: number)
     {
         this.components = {};
-        this._id = id;
+        this.id = id;
     }
 
     addComponent(component: IComponent)

@@ -1,28 +1,20 @@
 ﻿///<reference path="../classes/Game.ts" />
 ///<reference path="../classes/Entity.ts" />
+///<reference path="../classes/Vector.ts" />
 ///<reference path="../components/IComponent.ts" />
-
-interface IVelocity
-{
-    x: number;
-    y: number;
-}
 
 class PhysicsComponent implements IComponent
 {
     private _game: Game;
     private _entity: Entity;
-    private _velocity: IVelocity;
+    private _velocity: Vector;
     name: string = Components.PHYSICS;
 
     constructor(game: Game, entity: Entity)
     {
         this._game = game;
         this._entity = entity;
-        this._velocity = {
-            x: 0,
-            y: 0
-        };
+        this._velocity = new Vector(0, 0);
     }
 
     update(ticks: number): void
@@ -31,19 +23,16 @@ class PhysicsComponent implements IComponent
 
     initialize(settings: any): void
     {
-        this._velocity = {
-            x: settings.x,
-            y: settings.y
-        };
+        this._velocity.setVelocity(settings.x, settings.y);
     }
 
-    getVelocity(): IPosition
+    getVelocity(): Vector
     {
         return this._velocity;
     }
 
-    setVelocity(velocity: IVelocity)
+    setVelocity(x: number, y: number)
     {
-        this._velocity = velocity;
+        this._velocity.setVelocity(x, y);
     }
 }

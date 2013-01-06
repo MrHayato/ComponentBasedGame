@@ -32,18 +32,54 @@
             "x": 200,
             "y": 0
         },
-        "movement": {},
+        "input_movement": {},
+        "movement_animation": {},
         "physics": {
             "x": 0,
             "y": 0
         }
+    },
+    "ghost": {
+        "sprite": "ghost",
+        "animation": {
+            "width": 80,
+            "height": 80,
+            "startAnimation": "idle",
+            "frames": {
+                "idle": {
+                    "loop": true,
+                    "duration": 175,
+                    "indexes": [0, 0]
+                },
+                "walk": {
+                    "loop": true,
+                    "duration": 110,
+                    "indexes": [1, 4]
+                }
+            }
+        },
+        "position": {
+        },
+        "physics": {
+            "x": 0,
+            "y": 0
+        },
+        "ai_movement": {
+            "speed": 0.7
+        },
+        "movement_animation": {}
     },
     "crate": {
         "sprite": "crate",
         "position": {
             "x": 200,
             "y": 300
-        }
+        },
+        "physics": {
+            "x": 0,
+            "y": 0
+        },
+        "ai_movement": {}
     },
     "assets": [
         {
@@ -53,6 +89,10 @@
         {
             "key": "crate",
             "src": "/sprites/entities/crate.png"
+        },
+        {
+            "key": "ghost",
+            "src": "/sprites/entities/ghost.png"
         }
     ]
 }

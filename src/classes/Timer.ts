@@ -21,6 +21,10 @@ class Timer
         this._fps = settings.fps || Constants.DEFAULT_FPS;
         this._interval = Math.floor(1000 / this._fps);
         this._initialTime = null;
+        var self = this;
+
+        window.addEventListener("blur", function () { self.stop(); });
+        window.addEventListener("focus", function () { self.start(); });
     }
 
     tick()
