@@ -1,11 +1,5 @@
 ﻿///<reference path="Entity.ts" />
 
-interface ICallback
-{
-    callback: (message: EventMessage) => void;
-    context?: IComponent;
-}
-
 class EventMessage
 {
     constructor(
@@ -16,7 +10,7 @@ class EventMessage
 
 class EventManager
 {
-    _events: { [eventName: string]: ICallback[]; };
+    _events: { [eventName: string]: any[]; };
 
     constructor ()
     {
@@ -28,11 +22,10 @@ class EventManager
         if (!this._events[eventName])
             this._events[eventName] = [];
         
-        var cb: ICallback = {
-            callback: callback,
-            context: context
-        }
-        this._events[eventName].push(cb);
+        this._events[eventName].push(function ()
+        {
+            callback.apply(context, arguments);
+        });
     }
 
     send(eventName: string, message: EventMessage)
@@ -42,8 +35,7 @@ class EventManager
 
         for (var i = 0; i < this._events[eventName].length; i++)
         {
-            var cb = this._events[eventName][i];
-            cb.callback.call(cb.context, message);
+            this._events[eventName][i](message);
         }
     }
 }

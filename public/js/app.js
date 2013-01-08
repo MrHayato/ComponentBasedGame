@@ -263,19 +263,16 @@ var EventManager = (function () {
         if(!this._events[eventName]) {
             this._events[eventName] = [];
         }
-        var cb = {
-            callback: callback,
-            context: context
-        };
-        this._events[eventName].push(cb);
+        this._events[eventName].push(function () {
+            callback.apply(context, arguments);
+        });
     };
     EventManager.prototype.send = function (eventName, message) {
         if(!this._events[eventName]) {
             Logger.warning("No '" + eventName + "' events found.");
         }
         for(var i = 0; i < this._events[eventName].length; i++) {
-            var cb = this._events[eventName][i];
-            cb.callback.call(cb.context, message);
+            this._events[eventName][i](message);
         }
     };
     return EventManager;
@@ -821,7 +818,7 @@ var AIMovementComponent = (function () {
         var vy = 0;
         if(this._target !== null) {
             var position = (this._entity.getComponent(Components.POSITION)).getPosition();
-            if(Math.abs(position.distanceTo(this._target)) <= 150) {
+            if(Math.abs(position.distanceTo(this._target)) <= 550) {
                 var dir = new Vector(this._target.x - position.x, this._target.y - position.y);
                 dir.setLength(this._speed);
                 vx = dir.x;

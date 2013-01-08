@@ -31,7 +31,7 @@ class AIMovementComponent implements IComponent
         {
             var position = (<PositionComponent>this._entity.getComponent(Components.POSITION)).getPosition();
 
-            if (Math.abs(position.distanceTo(this._target)) <= 150)
+            if (Math.abs(position.distanceTo(this._target)) <= 550)
             {
                 //Move in the direction of the target
                 var dir = new Vector(this._target.x - position.x, this._target.y - position.y);
