@@ -5,16 +5,12 @@ var FileTypes;
     FileTypes.IMAGE = "image";
     FileTypes.AUDIO = "audio";
 })(FileTypes || (FileTypes = {}));
-
 var Constants;
 (function (Constants) {
     var ie = ((function () {
-        var undef;
-        var v = 3;
-        var div = document.createElement('div');
-
+        var undef, v = 3, div = document.createElement('div');
         while(div.innerHTML = '<!--[if gt IE ' + (++v) + ']><i></i><![endif]-->' , div.getElementsByTagName('i')[0]) {
-            ; ;
+            ;
         }
         return v > 4 ? v : undef;
     })());
@@ -32,7 +28,6 @@ var Constants;
     Constants.PLAYER_RUNNING_JUMP_MULTIPLIER = 1.25;
     Constants.PLAYER_LANDING_DELAY = 125;
 })(Constants || (Constants = {}));
-
 var Components;
 (function (Components) {
     Components.RENDER = "sprite";
@@ -43,7 +38,6 @@ var Components;
     Components.MOVEMENT_ANIMATION = "movement_animation";
     Components.PHYSICS = "physics";
 })(Components || (Components = {}));
-
 var Logger;
 (function (Logger) {
     Logger.Levels = {
@@ -73,7 +67,6 @@ var Logger;
     }
     Logger.trace = trace;
 })(Logger || (Logger = {}));
-
 var Entity = (function () {
     function Entity(id) {
         this.components = {
@@ -157,16 +150,12 @@ var AssetManager = (function () {
         var filename = file.toLowerCase();
         if(file.indexOf(".json") >= 0) {
             return FileTypes.JSON;
+        } else if(file.indexOf(".png") >= 0) {
+            return FileTypes.IMAGE;
+        } else if(file.indexOf(".mp3") >= 0) {
+            return FileTypes.AUDIO;
         } else {
-            if(file.indexOf(".png") >= 0) {
-                return FileTypes.IMAGE;
-            } else {
-                if(file.indexOf(".mp3") >= 0) {
-                    return FileTypes.AUDIO;
-                } else {
-                    return FileTypes.UNKNOWN;
-                }
-            }
+            return FileTypes.UNKNOWN;
         }
     };
     AssetManager.prototype.loadAsset = function (file, key, callback) {
@@ -175,7 +164,7 @@ var AssetManager = (function () {
         this.loading[key] = true;
         this.loaded[key] = false;
         switch(fileType) {
-            case FileTypes.IMAGE: {
+            case FileTypes.IMAGE:
                 var image = new Image();
                 image.onload = function () {
                     self.processImage(key, image);
@@ -186,9 +175,7 @@ var AssetManager = (function () {
                 image.onerror = this.assetError;
                 image.src = file;
                 break;
-
-            }
-            case FileTypes.AUDIO: {
+            case FileTypes.AUDIO:
                 var audio = new Audio();
                 audio.addEventListener("canplay", function () {
                     self.processAudio(key, audio);
@@ -200,8 +187,6 @@ var AssetManager = (function () {
                 audio.src = file;
                 audio.load();
                 break;
-
-            }
         }
     };
     AssetManager.prototype.loadJSON = function (file, callback) {
@@ -269,7 +254,7 @@ var EventManager = (function () {
     };
     EventManager.prototype.send = function (eventName, message) {
         if(!this._events[eventName]) {
-            Logger.warning("No '" + eventName + "' events found.");
+            return;
         }
         for(var i = 0; i < this._events[eventName].length; i++) {
             this._events[eventName][i](message);
@@ -396,6 +381,7 @@ var PositionComponent = (function () {
         this._game = game;
         this._entity = entity;
         this._position = new Point(0, 0);
+        this.facing = 1;
     }
     PositionComponent.prototype.update = function (ticks) {
         var physComp = this._entity.getComponent(Components.PHYSICS);
@@ -417,6 +403,13 @@ var PositionComponent = (function () {
     PositionComponent.prototype.setPosition = function (position) {
         this._position = position;
     };
+    PositionComponent.prototype.setFacing = function (direction) {
+        if(direction < 0) {
+            this.facing = -1;
+        } else if(direction > 0) {
+            this.facing = 1;
+        }
+    };
     return PositionComponent;
 })();
 var AnimationComponent = (function () {
@@ -436,10 +429,8 @@ var AnimationComponent = (function () {
             if(this._currentFrame >= anim.frames.length) {
                 if(anim.loop) {
                     this._currentFrame = 0;
-                } else {
-                    if(anim.onComplete) {
-                        anim.onComplete();
-                    }
+                } else if(anim.onComplete) {
+                    anim.onComplete();
                 }
             }
         }
@@ -573,7 +564,7 @@ var RenderComponent = (function () {
 var Input;
 (function (Input) {
     (function (Keys) {
-        ; ;
+        ;
         var _keyLookup = {
         };
         Keys.LEFT = addKey(37, "left");
@@ -675,9 +666,8 @@ var Input;
         Keys.getKey = getKey;
     })(Input.Keys || (Input.Keys = {}));
     var Keys = Input.Keys;
-
     (function (Mouse) {
-        ; ;
+        ;
         var _buttonLookup = {
         };
         Mouse.MOUSE_LEFT = addButton((Constants.IS_IE ? 1 : 0), "mouse_left");
@@ -697,7 +687,6 @@ var Input;
         Mouse.getButton = getButton;
     })(Input.Mouse || (Input.Mouse = {}));
     var Mouse = Input.Mouse;
-
     var _pressedKeys = {
     };
     var _preventKeys = [];
@@ -803,21 +792,22 @@ var Input;
     }
     Input.onButtonUp = onButtonUp;
 })(Input || (Input = {}));
-
 var AIMovementComponent = (function () {
     function AIMovementComponent(game, entity) {
         this.name = Components.AI_MOVEMENT;
         this._game = game;
         this._entity = entity;
-        this._target = null;
-        this._game.eventManager.listen("entity_moved", this.entityMoved, this);
+        this._target = (game.player.getComponent(Components.POSITION)).getPosition();
     }
     AIMovementComponent.prototype.update = function (ticks) {
         var physComp = this._entity.getComponent(Components.PHYSICS);
+        var positionComp = this._entity.getComponent(Components.POSITION);
+        var playerPosComp = this._game.player.getComponent(Components.POSITION);
+        var playerFacingMe = (playerPosComp.getPosition().x > positionComp.getPosition().x && playerPosComp.facing < 0) || (playerPosComp.getPosition().x < positionComp.getPosition().x && playerPosComp.facing > 0);
         var vx = 0;
         var vy = 0;
-        if(this._target !== null) {
-            var position = (this._entity.getComponent(Components.POSITION)).getPosition();
+        if(this._target !== null && !playerFacingMe) {
+            var position = positionComp.getPosition();
             if(Math.abs(position.distanceTo(this._target)) <= 550) {
                 var dir = new Vector(this._target.x - position.x, this._target.y - position.y);
                 dir.setLength(this._speed);
@@ -826,10 +816,6 @@ var AIMovementComponent = (function () {
             }
         }
         physComp.setVelocity(vx, vy);
-    };
-    AIMovementComponent.prototype.entityMoved = function (message) {
-        var location = message.message;
-        this._target = location;
     };
     AIMovementComponent.prototype.initialize = function (key) {
         this._speed = key.speed;
@@ -879,24 +865,22 @@ var MovementAnimationComponent = (function () {
         var physComp = this._entity.getComponent(Components.PHYSICS);
         var animComp = this._entity.getComponent(Components.ANIMATION);
         var rendComp = this._entity.getComponent(Components.RENDER);
+        var posComp = this._entity.getComponent(Components.POSITION);
         var velocity = physComp.getVelocity();
         var animation = "idle";
         if(Math.abs(velocity.x) >= Constants.PLAYER_WALK_SPEED_X * Constants.PLAYER_RUN_MULTIPLIER || Math.abs(velocity.y) >= Constants.PLAYER_WALK_SPEED_Y * Constants.PLAYER_RUN_MULTIPLIER) {
             animation = "run";
-        } else {
-            if(Math.abs(velocity.x) > 0 || Math.abs(velocity.y) > 0) {
-                animation = "walk";
-            }
+        } else if(Math.abs(velocity.x) > 0 || Math.abs(velocity.y) > 0) {
+            animation = "walk";
         }
         if(velocity.x < 0) {
             this._flipped = true;
-        } else {
-            if(velocity.x > 0) {
-                this._flipped = false;
-            }
+        } else if(velocity.x > 0) {
+            this._flipped = false;
         }
         animComp.setAnimation(animation);
         rendComp.setFlipped(this._flipped);
+        posComp.setFacing(velocity.x);
     };
     MovementAnimationComponent.prototype.initialize = function (key) {
     };
@@ -962,7 +946,7 @@ var Game = (function () {
         var entityData = this._gameEntities[entity];
         if(!entityData) {
             Logger.error("Entity not found: " + entity);
-            return;
+            return null;
         }
         $.extend(true, entityData, settings);
         var newEntity = new Entity(this.generateEntityId());
@@ -986,6 +970,9 @@ var Game = (function () {
                 Logger.error("Entity not loaded: " + entityName);
                 continue;
             }
+            if(entityName === 'player') {
+                this.player = entity;
+            }
             this.scene.addEntity(entity);
         }
     };
@@ -1008,4 +995,3 @@ var App;
         game.start();
     });
 })(App || (App = {}));
-

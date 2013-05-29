@@ -2,11 +2,7 @@
 ///<reference path="../definitions/jquery-1.8.d.ts" />
 ///<reference path="../constants.ts" />
 
-interface IAssetDefinition
-{
-    key: string;
-    src: string;
-}
+declare var Audio;
 
 class AssetManager
 {
@@ -39,11 +35,11 @@ class AssetManager
     {
         var filename = file.toLowerCase();
 
-        if (file.indexOf(".json") >= 0)
+        if (filename.indexOf(".json") >= 0)
             return FileTypes.JSON;
-        else if (file.indexOf(".png") >= 0)
+        else if (filename.indexOf(".png") >= 0)
             return FileTypes.IMAGE;
-        else if (file.indexOf(".mp3") >= 0)
+        else if (filename.indexOf(".mp3") >= 0)
             return FileTypes.AUDIO;
         else
             return FileTypes.UNKNOWN;

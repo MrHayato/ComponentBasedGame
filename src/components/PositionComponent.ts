@@ -10,12 +10,14 @@ class PositionComponent implements IComponent
     private _entity: Entity;
     private _position: Point;
     name: string = Components.POSITION;
+    facing: Number;
 
     constructor(game: Game, entity: Entity)
     {
         this._game = game;
         this._entity = entity;
         this._position = new Point(0, 0);
+        this.facing = 1;
     }
 
     update(ticks: number): void
@@ -46,5 +48,14 @@ class PositionComponent implements IComponent
     setPosition(position: Point)
     {
         this._position = position;
+    }
+
+    setFacing(direction: Number)
+    {
+        if (direction < 0) {
+            this.facing = -1;
+        } else if (direction > 0) {
+            this.facing = 1;
+        }
     }
 }

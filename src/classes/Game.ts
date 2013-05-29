@@ -20,6 +20,7 @@ class Game
     eventManager: EventManager;
     context: CanvasRenderingContext2D;
     scene: Scene;
+    player: Entity;
 
     private _lastId: number;
     private _canvas: HTMLCanvasElement;
@@ -100,7 +101,7 @@ class Game
         if (!entityData)
         {
             Logger.error("Entity not found: " + entity);
-            return;
+            return null;
         }
 
         $.extend(true, entityData, settings);
@@ -136,6 +137,10 @@ class Game
             {
                 Logger.error("Entity not loaded: " + entityName);
                 continue;
+            }
+
+            if (entityName === 'player') {
+                this.player = entity;
             }
 
             this.scene.addEntity(entity);

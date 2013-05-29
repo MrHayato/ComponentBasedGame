@@ -16,20 +16,22 @@ class AIMovementComponent implements IComponent
     {
         this._game = game;
         this._entity = entity;
-        this._target = null;
-        
-        this._game.eventManager.listen("entity_moved", this.entityMoved, this);
+        this._target = (<PositionComponent>game.player.getComponent(Components.POSITION)).getPosition();
     }
 
     update(ticks: number)
     {
         var physComp = <PhysicsComponent>this._entity.getComponent(Components.PHYSICS);
+        var positionComp = <PositionComponent>this._entity.getComponent(Components.POSITION);
+        var playerPosComp = <PositionComponent>this._game.player.getComponent(Components.POSITION);
+        var playerFacingMe = (playerPosComp.getPosition().x > positionComp.getPosition().x && playerPosComp.facing < 0)
+            || (playerPosComp.getPosition().x < positionComp.getPosition().x && playerPosComp.facing > 0);
         var vx = 0;
         var vy = 0;
 
-        if (this._target !== null)
+        if (this._target !== null && !playerFacingMe)
         {
-            var position = (<PositionComponent>this._entity.getComponent(Components.POSITION)).getPosition();
+            var position = positionComp.getPosition();
 
             if (Math.abs(position.distanceTo(this._target)) <= 550)
             {
@@ -42,12 +44,6 @@ class AIMovementComponent implements IComponent
         }
 
         physComp.setVelocity(vx, vy);
-    }
-
-    entityMoved(message: EventMessage)
-    {
-        var location = <Point>message.message;
-        this._target = location;
     }
 
     initialize(key: any)

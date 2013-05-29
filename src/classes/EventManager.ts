@@ -30,8 +30,9 @@ class EventManager
 
     send(eventName: string, message: EventMessage)
     {
-        if (!this._events[eventName])
-            Logger.warning("No '" + eventName + "' events found.");
+        if (!this._events[eventName]) {
+            return;
+        }
 
         for (var i = 0; i < this._events[eventName].length; i++)
         {

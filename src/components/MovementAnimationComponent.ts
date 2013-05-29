@@ -25,6 +25,7 @@ class MovementAnimationComponent implements IComponent
         var physComp = <PhysicsComponent>this._entity.getComponent(Components.PHYSICS);
         var animComp = <AnimationComponent>this._entity.getComponent(Components.ANIMATION);
         var rendComp = <RenderComponent>this._entity.getComponent(Components.RENDER);
+        var posComp = <PositionComponent>this._entity.getComponent(Components.POSITION);
         var velocity = physComp.getVelocity();
         var animation = "idle";
         
@@ -38,13 +39,15 @@ class MovementAnimationComponent implements IComponent
             animation = "walk";
         }
 
-        if (velocity.x < 0)
+        if (velocity.x < 0) {
             this._flipped = true;
-        else if (velocity.x > 0)
+        } else if (velocity.x > 0) {
             this._flipped = false;
+        }
 
         animComp.setAnimation(animation);
         rendComp.setFlipped(this._flipped);
+        posComp.setFacing(velocity.x);
     }
 
     initialize(key: any)
